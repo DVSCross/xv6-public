@@ -2,8 +2,6 @@
 #include "user.h"
 #include "date.h"
 
-#include <time.h>
-
 int stdout = 1;
 int stderr = 2;
 

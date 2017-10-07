@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+#include "virt2real.h"
 
 int
 sys_fork(void)
@@ -97,4 +98,21 @@ sys_date(void)
   argptr(0, &ptr, sizeof(struct rtcdate*));
   cmostime((struct rtcdate*)ptr);  
   return 0;
+}
+
+int
+sys_virt2real(void)
+{
+  struct proc* p = myproc(); 
+  int test = p->pid;
+  argint(0, &test); 
+  return 0; 
+}
+
+int
+num_pages(void)
+{
+  struct proc *curproc = myproc();
+  uint size = curproc->sz; 
+  return (int) size;
 }
