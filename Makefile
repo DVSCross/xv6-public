@@ -162,6 +162,7 @@ UPROGS=\
 	_cat\
         _date\
         _virt2real\
+        _corretor\
 	_echo\
 	_forktest\
 	_grep\

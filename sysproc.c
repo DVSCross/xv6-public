@@ -6,10 +6,15 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
-#include "virt2real.h"
 
 int
 sys_fork(void)
+{
+  return fork();
+}
+
+int
+sys_forkcow(void)
 {
   return fork();
 }
@@ -103,9 +108,6 @@ sys_date(void)
 int
 sys_virt2real(void)
 {
-  struct proc* p = myproc(); 
-  int test = p->pid;
-  argint(0, &test); 
   return 0; 
 }
 

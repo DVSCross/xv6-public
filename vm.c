@@ -383,6 +383,24 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
   return 0;
 }
 
+char* 
+virt2real(char* va){
+  struct proc* p = myproc();
+  pde_t *pgdir = p->pgdir;
+  pde_t *pde;
+  pte_t *pgtab;
+  pde = &pgdir[PDX(va)];
+  pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+  *pde = V2P(pgtab) | PTE_P | PTE_W | PTE_U;  
+
+  return (char*) pde;
+}
+
+/*int
+forkcow(void){
+  return 0;
+}*/
+
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!
