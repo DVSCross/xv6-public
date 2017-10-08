@@ -108,13 +108,13 @@ sys_date(void)
 int
 sys_virt2real(void)
 {
+  char *ptr;
+  argptr(0, &ptr, sizeof(char*));
   return 0; 
 }
 
 int
-num_pages(void)
+sys_num_pages(void)
 {
-  struct proc *curproc = myproc();
-  uint size = curproc->sz; 
-  return (int) size;
+  return 0;
 }

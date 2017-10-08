@@ -396,6 +396,13 @@ virt2real(char* va){
   return (char*) pde;
 }
 
+int
+num_pages(void)
+{
+  struct proc* p = myproc();
+  return (p->sz / 4096);
+}
+
 /*int
 forkcow(void){
   return 0;

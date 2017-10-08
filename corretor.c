@@ -48,8 +48,7 @@ int caso2forkcow(void) {
   printf(stdout, "[--Caso 2.1] Testando %d chamadas forkcow\n", N);
 
   for(n=0; n<N; n++){
-//     pid = forkcow();
-    pid = fork();
+    pid = forkcow();
     if(pid < 0) {
       printf(stdout, "[--Caso 2.1 - ERROR] Fork %d falhou!\n", n);
       return FALSE;
@@ -70,15 +69,13 @@ int caso2forkcow(void) {
 int caso3numpgs(void) {
   int fd[2];
   pipe(fd);
-  //int np = num_pages();
-  int np = 2;
+  int np = num_pages();
   char answer[20];     // com certeza menos de 99999999999999999999 pgs
-  //int pid = forkcow();
-  int pid = fork();
+  int pid = forkcow();
   if (pid == 0) { // child manda número de páginas de da exit
-    printf(stdout, "[--Caso 3.1] Child write num_pages %d\n", 2);//num_pages());
+    printf(stdout, "[--Caso 3.1] Child write num_pages %d\n", num_pages());
     close(fd[0]);
-    printf(fd[1], "%d\0", 2); //num_pages());
+    printf(fd[1], "%d\0", num_pages());
     printf(stdout, "[--Caso 3.2] Child indo embora\n");
     close(fd[1]);
     exit();
@@ -102,8 +99,7 @@ int caso4mesmoaddr(void) {
   int fd[2];
   pipe(fd);
   char answer[20];
-  //int pid = forkcow();
-  int pid = fork();
+  int pid = forkcow();
   if (pid == 0) { // child manda addr de GLOBAL1_RO
     int addr = (int)virt2real((char*)&GLOBAL1_RO);
     if (addr < 0) addr = -addr; // atoi falha quando <0, nao sei pq
@@ -137,8 +133,7 @@ int caso5mesmoaddr(void) {
   int fd[2];
   pipe(fd);
   char answer[20];
-  //int pid = forkcow();
-  int pid = fork();
+  int pid = forkcow();
   if (pid == 0) { // child manda addr de GLOBAL1_RO
     int addr = (int)virt2real((char*)&GLOBAL2_RW);
     if (addr < 0) addr = -addr; // atoi falha quando <0, nao sei pq
@@ -172,8 +167,7 @@ int caso6cow(void) {
   int fd[2];
   pipe(fd);
   char answer[20];
-  //int pid = forkcow();
-  int pid = fork();
+  int pid = forkcow();
   if (pid == 0) { // child manda addr de GLOBAL2_RW
     GLOBAL2_RW--;
     int addr = (int)virt2real((char*)&GLOBAL2_RW);
