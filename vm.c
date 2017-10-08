@@ -403,10 +403,10 @@ num_pages(void)
   return (p->sz / 4096);
 }
 
-/*int
+int
 forkcow(void){
   return 0;
-}*/
+}
 
 //PAGEBREAK!
 // Blank page.

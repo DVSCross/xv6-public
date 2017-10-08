@@ -110,11 +110,11 @@ sys_virt2real(void)
 {
   char *ptr;
   argptr(0, &ptr, sizeof(char*));
-  return 0; 
+  return (int) virt2real(ptr); 
 }
 
 int
 sys_num_pages(void)
 {
-  return 0;
+  return num_pages();
 }

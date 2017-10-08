@@ -161,7 +161,6 @@ mkfs: mkfs.c fs.h
 UPROGS=\
 	_cat\
         _date\
-        _virt2real\
         _corretor\
 	_echo\
 	_forktest\
