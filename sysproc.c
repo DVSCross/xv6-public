@@ -16,7 +16,7 @@ sys_fork(void)
 int
 sys_forkcow(void)
 {
-  return fork();
+  return forkcow();
 }
 
 int
@@ -109,8 +109,8 @@ int
 sys_virt2real(void)
 {
   char *ptr;
-  argptr(0, &ptr, sizeof(char*));
-  return (int) virt2real(ptr); 
+  argptr(0, &ptr, sizeof(uint));
+  return (int) virt2real(ptr);
 }
 
 int

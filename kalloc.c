@@ -21,6 +21,10 @@ struct {
   struct spinlock lock;
   int use_lock;
   struct run *freelist;
+
+  // The array's size of page's references is the limit of physical mem 
+  // divided by size of one page
+  uint pg_references[PHYSTOP / PGSIZE]; 
 } kmem;
 
 // Initialization happens in two phases.
@@ -48,8 +52,10 @@ freerange(void *vstart, void *vend)
 {
   char *p;
   p = (char*)PGROUNDUP((uint)vstart);
-  for(; p + PGSIZE <= (char*)vend; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)vend; p += PGSIZE) {
+    kmem.pg_references[V2P(p) / PGSIZE] = 0;
     kfree(p);
+  }
 }
 //PAGEBREAK: 21
 // Free the page of physical memory pointed at by v,
@@ -64,14 +70,23 @@ kfree(char *v)
   if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(v, 1, PGSIZE);
-
   if(kmem.use_lock)
     acquire(&kmem.lock);
+
   r = (struct run*)v;
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+
+  // one free removes one reference 
+  if(kmem.pg_references[V2P(v) / PGSIZE] > 0)         
+    --kmem.pg_references[V2P(v) / PGSIZE];
+
+  // if it was the last reference, no more references
+  if(kmem.pg_references[V2P(v) / PGSIZE] == 0){       
+    // Fill with junk to catch dangling refs.
+    memset(v, 1, PGSIZE);                           
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+  }
+
   if(kmem.use_lock)
     release(&kmem.lock);
 }
@@ -87,10 +102,40 @@ kalloc(void)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if(r){
     kmem.freelist = r->next;
+    // Firts free creates the first reference too
+    kmem.pg_references[V2P((char*)r) / PGSIZE] = 1;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
   return (char*)r;
 }
 
+// Functions to update and retrieve information about 
+// number of references for pages
+uint
+num_references(uint pa)
+{
+  uint n;
+  acquire(&kmem.lock);
+  n = kmem.pg_references[pa / PGSIZE];
+  release(&kmem.lock);
+  return n;
+}
+
+void
+add_reference(uint pa)
+{
+  acquire(&kmem.lock);
+  kmem.pg_references[pa / PGSIZE] += 1;
+  release(&kmem.lock);
+}
+
+void 
+remove_reference(uint pa)
+{
+  acquire(&kmem.lock);
+  kmem.pg_references[pa / PGSIZE] -= 1;
+  release(&kmem.lock);
+}

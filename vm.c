@@ -8,7 +8,7 @@
 #include "elf.h"
 
 extern char data[];  // defined by kernel.ld
-pde_t *kpgdir;  // for use in scheduler()
+pde_t *kpgdir;       // for use in scheduler()
 
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
@@ -189,6 +189,7 @@ inituvm(pde_t *pgdir, char *init, uint sz)
   mem = kalloc();
   memset(mem, 0, PGSIZE);
   mappages(pgdir, 0, PGSIZE, V2P(mem), PTE_W|PTE_U);
+  add_reference(V2P(mem));
   memmove(mem, init, sz);
 }
 
@@ -244,6 +245,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       kfree(mem);
       return 0;
     }
+    add_reference(V2P(mem));
   }
   return newsz;
 }
@@ -270,8 +272,11 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       pa = PTE_ADDR(*pte);
       if(pa == 0)
         panic("kfree");
-      char *v = P2V(pa);
-      kfree(v);
+      remove_reference(pa);
+      if(num_references(pa) == 0) {   
+        char *v = P2V(pa);
+        kfree(v);
+      }
       *pte = 0;
     }
   }
@@ -384,29 +389,109 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 }
 
 char* 
-virt2real(char* va){
+virt2real(char* va)
+{
+  uint pa;
   struct proc* p = myproc();
-  pde_t *pgdir = p->pgdir;
-  pde_t *pde;
-  pte_t *pgtab;
-  pde = &pgdir[PDX(va)];
-  pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
-  *pde = V2P(pgtab) | PTE_P | PTE_W | PTE_U;  
+  
+  //Call for walkpgdir is better than rewrite part of function
+  pte_t *pgtab = walkpgdir(p->pgdir, va, 0);  
 
-  return (char*) pde;
+  // 20 bits of real address is given by walkpgdir
+  // The rest of them is offset (already present on virtual address)
+  pa = (uint)((*pgtab & ~0xFFF) | (*va & 0xFFF));  
+  
+  return (char*) pa;
 }
 
 int
 num_pages(void)
 {
   struct proc* p = myproc();
-  return (p->sz / 4096);
+  return (p->sz / PGSIZE);
 }
 
-int
-forkcow(void){
+pde_t*
+copyuvmcow(pde_t *pgdir, uint sz)
+{
+  pde_t *d;
+  pte_t *pte;
+  uint pa, i, flags;
+//  char *mem;
+
+  if((d = setupkvm()) == 0)
+    return 0;
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("copyuvmcow: pte should exist");
+    if(!(*pte & PTE_P))
+      panic("copyuvmcow: page not present");
+
+    *pte &= ~PTE_W; // Set page to read only
+    *pte |= PTE_COW; // Set extra bit cow    
+ 
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+    //if((mem = kalloc()) == 0)
+    //  goto bad;
+    //memmove(mem, (char*)P2V(pa), PGSIZE);
+    //    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0)
+    if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+      goto bad;
+
+    add_reference(pa);
+  }
+  // Flush TLB
+  lcr3(V2P(pgdir));
+  return d;
+
+bad:
+  freevm(d);
+  // Flush TLB
+  lcr3(V2P(pgdir));
   return 0;
 }
+
+void
+pagefault(uint error)
+{
+  struct proc *p = myproc();
+  // register cr2 has the virtual address
+  // of the error
+  uint va = rcr2();  
+  pte_t *pte = walkpgdir(p->pgdir, (void*)va, 0);
+  
+  // Weird Problems
+  if (!(*pte & PTE_U) || !(*pte * PTE_COW))
+    panic("Weird Problem!\n");
+
+  if(*pte & PTE_W)
+    panic("PTE_W ON\n");
+ 
+  uint pa = PTE_ADDR(*pte);
+  uint refs = num_references(pa);
+  char *mem;
+
+  // process tried to access the page with write enabled
+  if(refs > 1) {
+    mem = kalloc();
+    add_reference(V2P(mem));
+    memmove(mem, (char*)P2V(pa), PGSIZE);
+    *pte = V2P(mem) | PTE_P | PTE_U | PTE_W;
+    remove_reference(V2P(mem)); 
+  }
+  // Only one process references the page, can write
+  else if(refs == 1) {
+    *pte |= PTE_W;  
+  }
+  else {
+     panic("Problem on references number!)\n");
+  }
+
+  // Flush TLB
+  lcr3(V2P(p->pgdir));
+}
+
 
 //PAGEBREAK!
 // Blank page.
